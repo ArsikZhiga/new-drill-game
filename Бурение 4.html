@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Oil Drilling Game</title>
+<style>
+body { margin:0; background:#87CEEB; display:flex; justify-content:center; align-items:center; height:100vh; }
+canvas { border:3px solid #333; }
+#menu { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6);
+ display:flex; flex-direction:column; justify-content:center; align-items:center; color:#fff; font-size:24px; }
+#menu button { margin-top:20px; padding:15px 30px; font-size:20px; border:none; border-radius:8px; background:#ffcf34; cursor:pointer; }
+</style>
+</head>
+<body>
+
+<div id="menu">
+  <div id="message">Загрузка текстур...</div>
+  <button id="startBtn" disabled>Старт</button>
+</div>
+
+<canvas id="game" width="400" height="600"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const messageEl = document.getElementById("message");
+const startBtn = document.getElementById("startBtn");
+
+const GRID_WIDTH = 10;
+const GRID_HEIGHT = 15;
+const CELL_SIZE = 40;
+
+let drillPosition = {x:5, y:0};
+let drillPath = [];
+let stones = [];
+let oilLake = {y: GRID_HEIGHT-1};
+let gameState = 'idle';
+
+// --- Загружаем текстуры ---
+const groundImg = new Image();
+groundImg.src = "textures/ground.jpg";
+const stoneImg = new Image();
+stoneImg.src = "textures/stone.jpg";
+
+let texturesLoaded = 0;
+groundImg.onload = stoneImg.onload = function(){
+    texturesLoaded++;
+    if(texturesLoaded===2){
+        messageEl.textContent = "Нажми Старт!";
+        startBtn.disabled = false;
+        initGame();
+    }
+}
+
+// --- Инициализация ---
+function initGame(){
+    drillPosition = {x:5, y:0};
+    drillPath = [];
+    stones = [];
+    gameState = 'idle';
+    for(let i=2;i<GRID_HEIGHT-1;i+=2){
+        stones.push({x: Math.floor(Math.random()*GRID_WIDTH), y:i});
+    }
+    drawGame();
+}
+
+// --- Рисование ---
+function drawGame(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // Земля
+    for(let y=0;y<GRID_HEIGHT;y++){
+        for(let x=0;x<GRID_WIDTH;x++){
+            ctx.drawImage(groundImg, x*CELL_SIZE, y*CELL_SIZE, CELL_SIZE, CELL_SIZE);
+        }
+    }
+
+    // Камни
+    stones.forEach(stone=>{
+        ctx.drawImage(stoneImg, stone.x*CELL_SIZE, stone.y*CELL_SIZE, CELL_SIZE, CELL_SIZE);
+    });
+
+    // Путь бура
+    ctx.fillStyle = "yellow";
+    drillPath.forEach(pos=>{
+        ctx.fillRect(pos.x*CELL_SIZE+CELL_SIZE/4, pos.y*CELL_SIZE+CELL_SIZE/4, CELL_SIZE/2, CELL_SIZE/2);
+    });
+
+    // Бур
+    ctx.fillStyle = "red";
+    ctx.fillRect(drillPosition.x*CELL_SIZE, drillPosition.y*CELL_SIZE, CELL_SIZE, CELL_SIZE);
+
+    // Нефть
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, oilLake.y*CELL_SIZE, canvas.width, CELL_SIZE);
+}
+
+// --- Движение бура ---
+function moveDrill(dx, dy){
+    if(gameState!=='drilling') return;
+    const newX = drillPosition.x+dx;
+    const newY = drillPosition.y+dy;
+
+    if(newX<0  newX>=GRID_WIDTH  newY<0 || newY>=GRID_HEIGHT) return;
+
+    if(stones.some(stone=>stone.x===newX && stone.y===newY)){
+        gameState='failed';
+        showMessage('💥 Вы попали в камень!');
+        drawGame();
+        return;
+    }
+
+    if(newY >= oilLake.y){
+        gameState='success';
+        showMessage('🎉 Нефть найдена! Вы победили!');
+        drillPath.push({x:newX, y:newY});
+        drawGame();
+        return;
+    }
+
+    drillPosition.x=newX;
+    drillPosition.y=newY;
+    drillPath.push({x:newX, y:newY});
+    drawGame();
+}
+
+// --- Управление ---
+document.addEventListener('keydown', e=>{
+    if(gameState!=='drilling') return;
+    switch(e.key){
+        case 'ArrowUp': e.preventDefault(); moveDrill(0,-1); break;
+        case 'ArrowDown': e.preventDefault(); moveDrill(0,1); break;
+        case 'ArrowLeft': e.preventDefault(); moveDrill(-1,0); break;
+        case 'ArrowRight': e.preventDefault(); moveDrill(1,0); break;
+    }
+});
+
+// --- Сообщения ---
+function showMessage(text){
+    messageEl.textContent=text;
+}
+
+// --- Старт ---
+startBtn.onclick = ()=>{
+    if(gameState==='idle'){
+        gameState='drilling';
+        startBtn.disabled=true;
+        showMessage('Используйте стрелки для бурения. Избегайте камней!');
+    }
+}
+</script>
+</body>
+</html>
